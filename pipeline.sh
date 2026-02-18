@@ -19,8 +19,12 @@ fi
 
 # 2. Sinkronisasi Kode ke Folder Main
 echo "📥 1/5: Menyamakan kode dengan branch $BRANCH_DEV..."
+# Opsional: Kita bisa paksa push dari folder dev ini jika diinginkan
+# git push origin $BRANCH_DEV
+
 cd "$MAIN_DIR" || exit
 git checkout $BRANCH_MAIN
+git pull origin $BRANCH_MAIN # Pastikan main di lokal sama dengan di cloud
 git fetch origin
 git merge origin/$BRANCH_DEV --no-edit
 git submodule update --init --recursive
