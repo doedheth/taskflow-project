@@ -8,7 +8,8 @@
     "server": "cd task-manager-server && npm run dev",
     "client": "cd task-manager-client && npm run dev",
     "install:all": "npm install && cd task-manager-server && npm install && cd ../task-manager-client && npm install",
-    "build": "cd task-manager-client && npm run build"
+    "build": "cd task-manager-client && npm run build",
+    "deploy": "bash pipeline.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
