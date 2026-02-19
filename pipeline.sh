@@ -1,89 +1,51 @@
 #!/bin/bash
-
 # ==========================================
-# KONFIGURASI PIPELINE (ULTRA STABLE V12)
+# PIPELINE PRODUKSI (CLEAN GIT VERSION)
 # ==========================================
-DEV_DIR="D:/SAP"                # Folder pengembangan
-MAIN_DIR="D:/Taskflow_main"    # Folder target produksi
+MAIN_DIR="D:/Taskflow_main"
+SERVER_APP="taskflow-server-prod"
+CLIENT_APP="taskflow-client-prod"
 
-echo "🚀 MEMULAI PIPELINE PRODUKSI (CLEAN & FORCE)..."
-echo "---------------------------------------------------"
+set -e # Stop if any command fails
 
-# 1. Validasi Folder
-if [ ! -d "$MAIN_DIR" ]; then
-    echo "❌ Error: Folder target $MAIN_DIR tidak ditemukan!"
-    exit 1
-fi
+echo "🚀 Starting Production Deployment..."
 
-# 2. Sinkronisasi File (Direct Mirror)
-echo "📥 1/4: Menyalin file dari Dev ke Main..."
-# Gunakan robocopy untuk mirror folder (kecuali folder build dan env)
-robocopy "$DEV_DIR/task-manager-server" "$MAIN_DIR/task-manager-server" /MIR /XD node_modules .git dist /XF .env > /dev/null
-robocopy "$DEV_DIR/task-manager-client" "$MAIN_DIR/task-manager-client" /MIR /XD node_modules .git dist /XF .env > /dev/null
+# 1. Sync Production Code
+cd "$MAIN_DIR" || exit
+git fetch origin
+git reset --hard origin/master
+git submodule update --init --recursive --remote
 
-# PAKSA salin file krusial agar sinkron sempurna dan tidak ada 'Module Not Found'
-mkdir -p "$MAIN_DIR/task-manager-server/src/database/migrations"
-cp -f "$DEV_DIR/task-manager-client/vite.config.ts" "$MAIN_DIR/task-manager-client/vite.config.ts"
-cp -f "$DEV_DIR/task-manager-server/src/index.ts" "$MAIN_DIR/task-manager-server/src/index.ts"
-cp -f "$DEV_DIR/task-manager-server/src/database/migrations/add_supplier_email.ts" "$MAIN_DIR/task-manager-server/src/database/migrations/add_supplier_email.ts"
-
-echo "   ✅ Sinkronisasi file selesai."
-
-# 3. Build Backend
-echo "⚙️  2/4: Building Backend (Server)..."
-cd "$MAIN_DIR/task-manager-server" || exit
+# 2. Build Backend
+echo "⚙️ Building Backend..."
+cd task-manager-server
 npm install --quiet
 rm -rf dist
-# Gunakan tsc langsung dengan pengabaian error tipe data untuk memastikan file dist tercipta
-npx tsc --skipLibCheck || echo "⚠️ Warning: Build tetap dilanjutkan."
+npx tsc --skipLibCheck
 
-# 4. Build Frontend
-echo "📦 3/4: Building Frontend (Client)..."
-cd "$MAIN_DIR/task-manager-client" || exit
+# 3. Build Frontend
+echo "📦 Building Frontend..."
+cd ../task-manager-client
 npm install --quiet
 rm -rf dist
 npx vite build
+cd ..
 
-# 5. Restart Service dengan PM2
-echo "🔄 4/4: Me-restart Layanan di PM2..."
-cd "$MAIN_DIR" || exit
+# 4. Refresh PM2 & Ports
+echo "🔄 Restarting Services..."
+S_PORT=$(grep ^PORT task-manager-server/.env | cut -d'=' -f2 | tr -dc '0-9' || echo "4444")
+V_PORT=$(grep VITE_PORT task-manager-client/.env | cut -d'=' -f2 | tr -dc '0-9' || echo "8888")
 
-# Ambil port dari .env produksi
-S_PORT=$(grep ^PORT task-manager-server/.env | cut -d'=' -f2 | tr -dc '0-9')
-V_PORT=$(grep VITE_PORT task-manager-client/.env | cut -d'=' -f2 | tr -dc '0-9')
-[ -z "$S_PORT" ] && S_PORT=4444
-[ -z "$V_PORT" ] && V_PORT=8888
+# Force kill processes on ports using PowerShell (Escaped for Bash)
+powershell.exe -Command "& { @($S_PORT, $V_PORT, 5555) | ForEach-Object { Get-NetTCPConnection -LocalPort \$_ -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id \$_.OwningProcess -Force -ErrorAction SilentlyContinue } } }"
 
-# NUCLEAR RESET: Matikan SEMUA proses Node yang mungkin mengunci port
-echo "   - Membersihkan port $S_PORT, $V_PORT, dan sisa port 5555..."
-powershell.exe -Command "& {
-    \$ports = @(5555, 4444, 8888, 3333, 8181, $S_PORT, $V_PORT);
-    foreach (\$p in \$ports) {
-        \$proc = Get-NetTCPConnection -LocalPort \$p -ErrorAction SilentlyContinue;
-        if (\$proc) {
-            \$proc | ForEach-Object { Stop-Process -Id \$_.OwningProcess -Force -ErrorAction SilentlyContinue }
-            Write-Host \"Membersihkan port \$p\"
-        }
-    }
-    # Matikan proses node yang tersesat
-    Stop-Process -Name node -Force -ErrorAction SilentlyContinue
-}"
+pm2 delete $SERVER_APP $CLIENT_APP 2>/dev/null || true
+sleep 2
 
-# Bersihkan PM2 secara total
-pm2 delete all 2>/dev/null
-sleep 3
+pm2 start "task-manager-server/dist/index.js" --name $SERVER_APP --cwd "$MAIN_DIR/task-manager-server"
+cd task-manager-client
+pm2 start node_modules/vite/bin/vite.js --name $CLIENT_APP -- preview --port $V_PORT --host
 
-# Start Backend
-echo "   - Menjalankan Backend di port $S_PORT..."
-pm2 start "$MAIN_DIR/task-manager-server/dist/index.js" --name taskflow-server-prod --cwd "$MAIN_DIR/task-manager-server"
-
-# Start Frontend
-echo "   - Menjalankan Frontend di port $V_PORT..."
-cd "$MAIN_DIR/task-manager-client" || exit
-pm2 start node_modules/vite/bin/vite.js --name taskflow-client-prod -- preview --port $V_PORT --host
-
-# 6. Selesai
 echo "---------------------------------------------------"
-echo "✅ PIPELINE BERHASIL!"
-echo "Aplikasi berjalan di: http://localhost:$V_PORT"
+echo "✅ Deployment Successful!"
 pm2 status
