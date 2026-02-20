@@ -68,7 +68,11 @@
       "Bash(npm run build:*)",
       "Bash(ipconfig)",
       "Bash(git rebase:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git show-ref:*)",
+      "Bash(pm2 logs:*)",
+      "Bash(node:*)"
     ]
   }
 }

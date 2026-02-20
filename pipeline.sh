@@ -12,9 +12,11 @@ echo "🚀 Starting Production Deployment..."
 
 # 1. Sync Production Code
 cd "$MAIN_DIR" || exit
-git fetch origin
-git reset --hard origin/master
-git submodule update --init --recursive --remote
+echo "📥 Fetching changes from local development..."
+git fetch dev_local master
+echo "🔀 Merging changes into production..."
+git merge dev_local/master --no-edit
+git submodule update --init --recursive
 
 # 2. Build Backend
 echo "⚙️ Building Backend..."
