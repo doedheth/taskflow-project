@@ -1,0 +1,15 @@
+name: convert-pdf
+description: "Convert Markdown files (with Mermaid support) to PDF"
+author: "BMad"
+
+# Critical variables from config
+config_source: "{project-root}/_bmad/bmm/config.yaml"
+
+# Workflow components
+installed_path: "{project-root}/_bmad/bmm/workflows/utils/convert-pdf"
+instructions: "{installed_path}/instructions.md"
+
+# Project context
+project_context: "**/project-context.md"
+
+standalone: true

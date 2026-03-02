@@ -1,0 +1,6 @@
+[submodule "task-manager-server"]
+	path = task-manager-server
+	url = https://github.com/doedheth/task-manager-server.git
+[submodule "task-manager-client"]
+	path = task-manager-client
+	url = https://github.com/doedheth/task-manager-client.git
