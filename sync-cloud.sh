@@ -7,7 +7,15 @@ set -e # Stop jika ada error
 
 echo "🔄 Memulai Sinkronisasi Cloud..."
 
-# 1. Pastikan kita di branch dev dan ambil update terbaru
+# Bersihkan state merge/rebase yang menggantung (jika ada)
+git merge --abort 2>/dev/null || true
+git rebase --abort 2>/dev/null || true
+git reset --merge 2>/dev/null || true
+
+# Sinkronkan remote
+git fetch origin --prune
+
+# 1. Pastikan kita di branch dev dan kirim update terbaru
 echo "📥 Mengirim perubahan dari lokal ke origin/dev..."
 git checkout dev
 git push origin dev
@@ -19,7 +27,7 @@ git pull origin master
 
 # 3. Merge dev ke master
 echo "Merging dev ke master..."
-git merge dev --no-edit
+git merge dev --no-edit || git merge dev --no-edit --allow-unrelated-histories
 
 # 4. Push master yang sudah di-merge ke cloud
 echo "📤 Mengirim hasil merge ke origin/master (Cloud)..."
