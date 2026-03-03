@@ -66,6 +66,13 @@ if [ -f "$BK_PATH" ]; then
   echo "✅ DB restored to $DB_PATH"
 fi
 
+# 1.1 Write version metadata
+SERVER_SHA=$(git -C task-manager-server rev-parse HEAD)
+CLIENT_SHA=$(git -C task-manager-client rev-parse HEAD)
+BUILD_TIME=$(date -Is 2>/dev/null || date)
+printf '{"commit":"%s","branch":"%s","build_time":"%s"}' "$SERVER_SHA" "$DEPLOY_BRANCH" "$BUILD_TIME" > task-manager-server/version.json
+printf '{"commit":"%s","branch":"%s","build_time":"%s"}' "$CLIENT_SHA" "$DEPLOY_BRANCH" "$BUILD_TIME" > task-manager-client/version.json
+
 # 2. Build Backend
 echo "⚙️ Building Backend..."
 cd task-manager-server
