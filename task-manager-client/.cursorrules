@@ -1,0 +1,521 @@
+# TaskFlow Frontend Rules - React/TypeScript/Tailwind
+
+## Project Overview
+TaskFlow Client adalah frontend untuk sistem manajemen proyek dan maintenance pabrik thermoforming.
+- **Stack**: React 18, TypeScript, Tailwind CSS, React Router, Axios
+- **Bahasa UI**: Indonesian (Bahasa Indonesia)
+- **Bahasa Code**: English (comments, variables, functions)
+
+---
+
+## File Structure & Naming
+
+### Directory Structure
+```
+src/
+├── components/        # Reusable UI components
+│   ├── ui/           # Base UI elements (Button, Modal, Input)
+│   └── forms/        # Form-specific components
+├── pages/            # Page/route components
+├── context/          # React context providers
+├── services/         # API services
+│   └── api.ts        # Centralized API calls
+├── types/            # TypeScript interfaces
+│   └── index.ts      # Shared types
+├── utils/            # Utility functions
+└── App.tsx           # Main app with routing
+```
+
+### Naming Conventions
+- **Components**: PascalCase (`UserProfile.tsx`, `WorkOrderCard.tsx`)
+- **Utilities**: camelCase (`formatDate.ts`, `parseUtils.ts`)
+- **Types**: PascalCase for interfaces, camelCase for type aliases
+- **Constants**: UPPER_SNAKE_CASE
+- **Event handlers**: `handle{Event}` (e.g., `handleClick`, `handleSubmit`)
+- **Boolean variables**: `is{State}`, `has{State}`, `should{State}`
+
+---
+
+## TypeScript Standards
+
+### Interface Definitions
+```typescript
+// ✅ Good - Explicit interface with clear types
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'manager' | 'technician' | 'operator';
+  created_at: string;
+}
+
+// ❌ Bad - Using any
+interface User {
+  id: any;
+  data: any;
+}
+```
+
+### Component Props
+```typescript
+// ✅ Good - Props interface with explicit types
+interface CardProps {
+  title: string;
+  description?: string;
+  status: 'active' | 'inactive';
+  onAction: (id: number) => void;
+  children?: React.ReactNode;
+}
+
+export default function Card({ title, description, status, onAction, children }: CardProps) {
+  // ...
+}
+```
+
+---
+
+## Theme System (Light & Dark Mode)
+
+### Using Theme Context
+```typescript
+import { useTheme } from '../context/ThemeContext';
+
+export default function MyComponent() {
+  const { isDark } = useTheme();
+  
+  return (
+    <div className={isDark ? 'bg-dark-800' : 'bg-white'}>
+      {/* content */}
+    </div>
+  );
+}
+```
+
+### Color Palette - ALWAYS Use Both Modes
+
+#### Backgrounds
+```typescript
+// Page background
+className={isDark ? 'bg-dark-900' : 'bg-gray-50'}
+
+// Card/Container background
+className={isDark ? 'bg-dark-800' : 'bg-white'}
+
+// Secondary/Muted background
+className={isDark ? 'bg-dark-700' : 'bg-gray-100'}
+
+// Hover states
+className={isDark ? 'hover:bg-dark-700' : 'hover:bg-gray-50'}
+```
+
+#### Text Colors
+```typescript
+// Primary text
+className={isDark ? 'text-white' : 'text-gray-900'}
+
+// Secondary text
+className={isDark ? 'text-dark-300' : 'text-gray-600'}
+
+// Muted text
+className={isDark ? 'text-dark-400' : 'text-gray-500'}
+
+// Labels
+className={isDark ? 'text-dark-300' : 'text-gray-700'}
+```
+
+#### Borders
+```typescript
+// Standard border
+className={isDark ? 'border-dark-600' : 'border-gray-200'}
+
+// Subtle border
+className={isDark ? 'border-dark-700' : 'border-gray-100'}
+
+// Dividers
+className={isDark ? 'divide-dark-600' : 'divide-gray-200'}
+```
+
+#### Input Fields
+```typescript
+className={`w-full px-3 py-2 rounded-lg border transition-colors
+  ${isDark 
+    ? 'bg-dark-700 border-dark-600 text-white placeholder-dark-400 focus:border-blue-500' 
+    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500'
+  } focus:ring-2 focus:ring-blue-500/20 focus:outline-none`}
+```
+
+#### Buttons
+```typescript
+// Primary Button
+className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+
+// Secondary Button
+className={`px-4 py-2 rounded-lg transition-colors
+  ${isDark 
+    ? 'bg-dark-700 text-dark-300 hover:bg-dark-600' 
+    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+  }`}
+
+// Danger Button
+className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+
+// Ghost/Icon Button
+className={`p-2 rounded-lg transition-colors
+  ${isDark 
+    ? 'text-dark-400 hover:text-white hover:bg-dark-700' 
+    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+  }`}
+```
+
+---
+
+## Status Badge Colors (CONSISTENT)
+
+```typescript
+const statusColors = {
+  // Task/Ticket Status
+  todo: isDark 
+    ? 'bg-gray-700 text-gray-300' 
+    : 'bg-gray-100 text-gray-700',
+  open: isDark 
+    ? 'bg-blue-900/50 text-blue-300' 
+    : 'bg-blue-100 text-blue-700',
+  in_progress: isDark 
+    ? 'bg-yellow-900/50 text-yellow-300' 
+    : 'bg-yellow-100 text-yellow-700',
+  review: isDark 
+    ? 'bg-purple-900/50 text-purple-300' 
+    : 'bg-purple-100 text-purple-700',
+  done: isDark 
+    ? 'bg-green-900/50 text-green-300' 
+    : 'bg-green-100 text-green-700',
+  closed: isDark 
+    ? 'bg-gray-700 text-gray-400' 
+    : 'bg-gray-200 text-gray-600',
+  
+  // Priority
+  critical: isDark 
+    ? 'bg-red-900/50 text-red-300' 
+    : 'bg-red-100 text-red-700',
+  high: isDark 
+    ? 'bg-orange-900/50 text-orange-300' 
+    : 'bg-orange-100 text-orange-700',
+  medium: isDark 
+    ? 'bg-yellow-900/50 text-yellow-300' 
+    : 'bg-yellow-100 text-yellow-700',
+  low: isDark 
+    ? 'bg-green-900/50 text-green-300' 
+    : 'bg-green-100 text-green-700',
+};
+```
+
+---
+
+## Component Patterns
+
+### Page Component Template
+```typescript
+import { useState, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext';
+import { apiModule } from '../services/api';
+import { TypeName } from '../types';
+
+export default function PageName() {
+  const { isDark } = useTheme();
+  const [data, setData] = useState<TypeName[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const response = await apiModule.getAll();
+      setData(response.data);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Page Title
+          </h1>
+          <p className={isDark ? 'text-dark-400' : 'text-gray-600'}>
+            Page description
+          </p>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className={`rounded-xl border ${isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'}`}>
+        {/* ... */}
+      </div>
+    </div>
+  );
+}
+```
+
+### Card Component
+```typescript
+<div className={`rounded-xl border p-6 ${
+  isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+}`}>
+  <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+    Card Title
+  </h3>
+  <p className={`mt-2 ${isDark ? 'text-dark-400' : 'text-gray-600'}`}>
+    Card content
+  </p>
+</div>
+```
+
+### Modal Component
+```typescript
+{showModal && (
+  <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="flex min-h-full items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/50" onClick={() => setShowModal(false)} />
+      
+      {/* Modal Content */}
+      <div className={`relative rounded-xl shadow-xl max-w-md w-full ${
+        isDark ? 'bg-dark-800' : 'bg-white'
+      }`}>
+        {/* Header */}
+        <div className={`px-6 py-4 border-b flex items-center justify-between ${
+          isDark ? 'border-dark-700' : 'border-gray-200'
+        }`}>
+          <h2 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Modal Title
+          </h2>
+          <button onClick={() => setShowModal(false)} className={`p-1 rounded-lg ${
+            isDark ? 'text-dark-400 hover:bg-dark-700' : 'text-gray-400 hover:bg-gray-100'
+          }`}>
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
+        
+        {/* Body */}
+        <div className="p-6">
+          {/* Content */}
+        </div>
+        
+        {/* Footer */}
+        <div className={`px-6 py-4 border-t flex justify-end gap-3 ${
+          isDark ? 'border-dark-700' : 'border-gray-200'
+        }`}>
+          <button className={`px-4 py-2 rounded-lg ${
+            isDark ? 'bg-dark-700 text-dark-300 hover:bg-dark-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}>
+            Batal
+          </button>
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+```
+
+### Table Component
+```typescript
+<div className={`rounded-xl border overflow-hidden ${
+  isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+}`}>
+  <div className="overflow-x-auto">
+    <table className="w-full">
+      <thead>
+        <tr className={isDark ? 'bg-dark-700/50' : 'bg-gray-50'}>
+          <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+            isDark ? 'text-dark-400' : 'text-gray-500'
+          }`}>
+            Column
+          </th>
+        </tr>
+      </thead>
+      <tbody className={`divide-y ${isDark ? 'divide-dark-700' : 'divide-gray-200'}`}>
+        <tr className={isDark ? 'hover:bg-dark-700/50' : 'hover:bg-gray-50'}>
+          <td className={`px-4 py-3 text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Cell content
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+---
+
+## Form Inputs (CONSISTENT STYLING)
+
+### Text Input
+```typescript
+<div>
+  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-dark-300' : 'text-gray-700'}`}>
+    Label <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="text"
+    value={value}
+    onChange={(e) => setValue(e.target.value)}
+    className={`w-full px-3 py-2 rounded-lg border transition-colors
+      ${isDark 
+        ? 'bg-dark-700 border-dark-600 text-white placeholder-dark-400' 
+        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+      } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none`}
+    placeholder="Placeholder text"
+  />
+</div>
+```
+
+### Select Input
+```typescript
+<div>
+  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-dark-300' : 'text-gray-700'}`}>
+    Label
+  </label>
+  <select
+    value={value}
+    onChange={(e) => setValue(e.target.value)}
+    className={`w-full px-3 py-2 rounded-lg border transition-colors
+      ${isDark 
+        ? 'bg-dark-700 border-dark-600 text-white' 
+        : 'bg-white border-gray-300 text-gray-900'
+      } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none`}
+  >
+    <option value="">Pilih opsi</option>
+    <option value="1">Option 1</option>
+  </select>
+</div>
+```
+
+### Textarea
+```typescript
+<div>
+  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-dark-300' : 'text-gray-700'}`}>
+    Label
+  </label>
+  <textarea
+    value={value}
+    onChange={(e) => setValue(e.target.value)}
+    rows={4}
+    className={`w-full px-3 py-2 rounded-lg border transition-colors resize-none
+      ${isDark 
+        ? 'bg-dark-700 border-dark-600 text-white placeholder-dark-400' 
+        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+      } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none`}
+  />
+</div>
+```
+
+---
+
+## Loading & Empty States
+
+### Loading Spinner
+```typescript
+<div className="flex items-center justify-center h-64">
+  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+</div>
+```
+
+### Empty State
+```typescript
+<div className="text-center py-12">
+  <InboxIcon className={`mx-auto h-12 w-12 ${isDark ? 'text-dark-500' : 'text-gray-400'}`} />
+  <h3 className={`mt-2 text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+    Tidak ada data
+  </h3>
+  <p className={`mt-1 text-sm ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>
+    Mulai dengan menambahkan item baru.
+  </p>
+</div>
+```
+
+### Skeleton Loading
+```typescript
+<div className="animate-pulse space-y-3">
+  <div className={`h-4 rounded w-3/4 ${isDark ? 'bg-dark-700' : 'bg-gray-200'}`}></div>
+  <div className={`h-4 rounded w-1/2 ${isDark ? 'bg-dark-700' : 'bg-gray-200'}`}></div>
+</div>
+```
+
+---
+
+## API Service Pattern
+
+```typescript
+// services/api.ts
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '/api',
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Add auth interceptor
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export const moduleAPI = {
+  getAll: (params?: { status?: string }) => 
+    api.get('/endpoint', { params }),
+  
+  getById: (id: number) => 
+    api.get(`/endpoint/${id}`),
+  
+  create: (data: CreateDTO) => 
+    api.post('/endpoint', data),
+  
+  update: (id: number, data: Partial<UpdateDTO>) => 
+    api.put(`/endpoint/${id}`, data),
+  
+  delete: (id: number) => 
+    api.delete(`/endpoint/${id}`),
+};
+```
+
+---
+
+## Best Practices
+
+### DO ✅
+- Always use `isDark` from `useTheme()` for conditional styling
+- Provide both light and dark mode colors for every element
+- Use semantic color names (primary, secondary, muted)
+- Add `transition-colors` for smooth theme transitions
+- Use consistent border-radius (`rounded-lg` for buttons, `rounded-xl` for cards)
+- Include hover states for interactive elements
+
+### DON'T ❌
+- Don't hardcode colors without dark mode alternative
+- Don't use inline styles (use Tailwind classes)
+- Don't forget loading and error states
+- Don't use `any` type in TypeScript
+- Don't create duplicate components - reuse existing ones
+

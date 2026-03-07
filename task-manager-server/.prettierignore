@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Database
+*.db
+*.sqlite
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Package manager
+package-lock.json
+

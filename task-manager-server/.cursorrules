@@ -1,0 +1,496 @@
+# TaskFlow Backend Rules - Node.js/Express/TypeScript/SQLite
+
+## Project Overview
+TaskFlow Server adalah backend API untuk sistem manajemen proyek dan maintenance pabrik thermoforming.
+- **Stack**: Node.js, Express, TypeScript, SQLite (sql.js)
+- **Architecture**: OOP with Repository, Service, Controller pattern
+- **Authentication**: JWT
+- **Bahasa Code**: English (comments, variables, functions)
+
+---
+
+## Architecture Overview (OOP Pattern)
+
+```
+src/
+├── controllers/          # HTTP request handlers
+│   ├── BaseController.ts # Abstract base controller
+│   └── WorkOrderController.ts
+├── services/             # Business logic layer
+│   ├── BaseService.ts    # Abstract base service with error classes
+│   └── WorkOrderService.ts
+├── models/               # Data access layer (Repository pattern)
+│   ├── BaseRepository.ts # Abstract base repository
+│   └── WorkOrderRepository.ts
+├── routes/
+│   ├── v2/              # New OOP routes (slim)
+│   │   └── workOrders.ts
+│   └── workOrders.ts    # Legacy routes (for backward compatibility)
+├── types/               # TypeScript interfaces
+│   ├── common.ts        # Shared types
+│   └── workOrder.ts     # Entity-specific types
+├── middleware/          # Auth, validation, error handling
+├── database/            # DB connection, migrations
+└── index.ts
+```
+
+### Layer Responsibilities
+
+| Layer | Responsibility | Example |
+|-------|---------------|---------|
+| **Controller** | HTTP handling, request parsing, response formatting | `WorkOrderController.ts` |
+| **Service** | Business logic, validation, orchestration | `WorkOrderService.ts` |
+| **Repository** | Data access, SQL queries, CRUD operations | `WorkOrderRepository.ts` |
+| **Types** | TypeScript interfaces and DTOs | `workOrder.ts` |
+
+---
+
+## File Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Controllers | PascalCase + Controller | `WorkOrderController.ts` |
+| Services | PascalCase + Service | `WorkOrderService.ts` |
+| Repositories | PascalCase + Repository | `WorkOrderRepository.ts` |
+| Types | PascalCase (interface) | `WorkOrder`, `CreateWorkOrderDTO` |
+| Routes | camelCase | `workOrders.ts` |
+| Database Tables | snake_case plural | `work_orders` |
+
+---
+
+## Repository Pattern
+
+### Base Repository
+```typescript
+import { BaseRepository } from './BaseRepository';
+
+export class EntityRepository extends BaseRepository<Entity, CreateDTO, UpdateDTO> {
+  constructor() {
+    super('table_name'); // Table name
+  }
+
+  // Implement abstract methods
+  create(data: CreateDTO, userId?: number): Entity {
+    const result = this.execute(
+      'INSERT INTO table_name (col1, col2) VALUES (?, ?)',
+      [data.col1, data.col2]
+    );
+    return this.findById(Number(result.lastInsertRowid))!;
+  }
+
+  update(id: number, data: UpdateDTO): Entity | null {
+    // ... implementation
+  }
+
+  // Custom queries
+  findByCustomField(value: string): Entity[] {
+    return this.query('SELECT * FROM table_name WHERE field = ?', [value]);
+  }
+}
+
+// Export singleton
+export const entityRepository = new EntityRepository();
+```
+
+### Repository Methods (inherited)
+```typescript
+// Query methods
+findAll(pagination?)        // Get all records
+findById(id)               // Get by ID
+findBy(field, value)       // Find by field
+findOneBy(field, value)    // Find one by field
+count(where?, params?)     // Count records
+exists(id)                 // Check existence
+
+// Mutation methods
+create(data, userId?)      // Create record (abstract)
+update(id, data, userId?)  // Update record (abstract)
+delete(id)                 // Delete record
+
+// Transaction methods
+beginTransaction()         // Start transaction
+commit()                   // Commit
+rollback()                 // Rollback
+transaction(callback)      // Execute in transaction
+
+// Protected helpers
+query<T>(sql, params)      // Execute SELECT, return array
+queryOne<T>(sql, params)   // Execute SELECT, return one
+execute(sql, params)       // Execute INSERT/UPDATE/DELETE
+```
+
+---
+
+## Service Pattern
+
+### Base Service
+```typescript
+import { BaseService, ValidationError, NotFoundError } from './BaseService';
+
+export class EntityService extends BaseService<Entity, CreateDTO, UpdateDTO> {
+  constructor(repository: EntityRepository) {
+    super(repository);
+  }
+
+  // Override validation hooks
+  protected validateCreate(data: CreateDTO): void {
+    const errors = [];
+    if (!data.requiredField) {
+      errors.push({ field: 'requiredField', message: 'Field is required' });
+    }
+    if (errors.length > 0) {
+      throw new ValidationError('Validation failed', errors);
+    }
+  }
+
+  // Custom business methods
+  customBusinessLogic(id: number): Entity {
+    const entity = this.repository.findById(id);
+    if (!entity) throw new NotFoundError('Entity not found');
+    
+    // Business logic here
+    return entity;
+  }
+}
+
+// Export singleton
+export const entityService = new EntityService(entityRepository);
+```
+
+### Error Classes
+```typescript
+import {
+  ServiceError,      // Base error (500)
+  NotFoundError,     // 404
+  ValidationError,   // 400 with field errors
+  UnauthorizedError, // 401
+  ForbiddenError,    // 403
+  ConflictError      // 409
+} from '../services/BaseService';
+
+// Usage
+throw new NotFoundError('Work order not found');
+throw new ValidationError('Validation failed', [
+  { field: 'title', message: 'Title is required' }
+]);
+throw new ForbiddenError('Access denied');
+```
+
+---
+
+## Controller Pattern
+
+### Base Controller
+```typescript
+import { BaseController } from './BaseController';
+
+export class EntityController extends BaseController<Entity, CreateDTO, UpdateDTO> {
+  constructor(service: EntityService) {
+    super(service);
+  }
+
+  // Standard CRUD handlers are inherited:
+  // getAll, getById, create, update, delete
+
+  // Custom handlers
+  customAction = (req: Request, res: Response): void => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = this.getUserId(req);
+      const result = this.service.customMethod(id, userId);
+      this.success(res, result);
+    } catch (error) {
+      this.handleError(res, error, 'Custom action');
+    }
+  };
+}
+
+// Export singleton
+export const entityController = new EntityController(entityService);
+```
+
+### Controller Helper Methods
+```typescript
+// Request helpers
+getUser(req)              // Get authenticated user
+getUserId(req)            // Get user ID
+hasRole(req, roles[])     // Check user role
+getPagination(req)        // Parse pagination params
+validate(req, res)        // Validate with express-validator
+
+// Response helpers
+success(res, data, 200)   // Send success response
+created(res, data)        // Send 201 response
+noContent(res)            // Send 204 response
+error(res, message, code) // Send error response
+handleError(res, error)   // Handle service errors
+```
+
+---
+
+## Route Pattern (v2 - Slim Routes)
+
+```typescript
+// routes/v2/entities.ts
+import { Router } from 'express';
+import { body } from 'express-validator';
+import { auth, managerOrAdmin } from '../../middleware/auth';
+import { entityController } from '../../controllers/EntityController';
+
+const router = Router();
+
+// Validation middleware
+const createValidation = [
+  body('title').notEmpty().withMessage('Title is required'),
+  body('type').isIn(['a', 'b']).withMessage('Invalid type'),
+];
+
+// Routes - delegate to controller
+router.get('/', auth, entityController.getAll);
+router.get('/:id', auth, entityController.getById);
+router.post('/', auth, managerOrAdmin, createValidation, entityController.create);
+router.put('/:id', auth, managerOrAdmin, entityController.update);
+router.delete('/:id', auth, managerOrAdmin, entityController.delete);
+
+// Custom actions
+router.post('/:id/start', auth, entityController.start);
+
+export default router;
+```
+
+---
+
+## Type Definitions
+
+### Entity Types
+```typescript
+// types/entity.ts
+
+// Enums as union types
+export type EntityStatus = 'active' | 'inactive' | 'archived';
+export type EntityType = 'type_a' | 'type_b';
+
+// Main entity interface
+export interface Entity {
+  id: number;
+  name: string;
+  status: EntityStatus;
+  type: EntityType;
+  created_at: string;
+  updated_at: string;
+}
+
+// With joined data
+export interface EntityWithDetails extends Entity {
+  related_name?: string;
+  assignees?: User[];
+}
+
+// DTOs (Data Transfer Objects)
+export interface CreateEntityDTO {
+  name: string;
+  type: EntityType;
+  description?: string;
+}
+
+export interface UpdateEntityDTO {
+  name?: string;
+  type?: EntityType;
+  description?: string;
+}
+
+// Filter types
+export interface EntityFilter {
+  status?: EntityStatus;
+  type?: EntityType;
+  search?: string;
+}
+```
+
+### Common Types
+```typescript
+// types/common.ts
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+    name: string;
+    department_id: number | null;
+  };
+}
+
+export interface PaginationParams {
+  page: number;
+  limit: number;
+  offset: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+```
+
+---
+
+## Database Patterns
+
+### Table Creation
+```sql
+CREATE TABLE IF NOT EXISTS entities (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+  type TEXT NOT NULL CHECK(type IN ('type_a', 'type_b')),
+  -- Foreign keys
+  user_id INTEGER REFERENCES users(id),
+  -- Timestamps
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_entities_status ON entities(status);
+```
+
+### Naming Conventions
+- Tables: `snake_case` plural (`work_orders`, `shift_patterns`)
+- Columns: `snake_case` (`created_at`, `asset_id`)
+- Foreign keys: `{table_singular}_id` (`user_id`, `asset_id`)
+- Indexes: `idx_{table}_{column}`
+
+---
+
+## Creating New Module (Checklist)
+
+1. **Create Types** (`types/entity.ts`)
+   - [ ] Entity interface
+   - [ ] EntityWithDetails (if needed)
+   - [ ] CreateEntityDTO
+   - [ ] UpdateEntityDTO
+   - [ ] EntityFilter
+
+2. **Create Repository** (`models/EntityRepository.ts`)
+   - [ ] Extend BaseRepository
+   - [ ] Implement create()
+   - [ ] Implement update()
+   - [ ] Add custom queries
+
+3. **Create Service** (`services/EntityService.ts`)
+   - [ ] Extend BaseService
+   - [ ] Override validateCreate()
+   - [ ] Override validateUpdate()
+   - [ ] Add business logic methods
+
+4. **Create Controller** (`controllers/EntityController.ts`)
+   - [ ] Extend BaseController
+   - [ ] Override handlers if needed
+   - [ ] Add custom action handlers
+
+5. **Create Routes** (`routes/v2/entities.ts`)
+   - [ ] Define validation middleware
+   - [ ] Map routes to controller methods
+   - [ ] Add to routes/v2/index.ts
+
+6. **Export** (update index files)
+   - [ ] types/index.ts
+   - [ ] models/index.ts
+   - [ ] services/index.ts
+   - [ ] controllers/index.ts
+
+---
+
+## API Response Standards
+
+### Success Responses
+```typescript
+// Single item
+res.json(item);
+
+// List with pagination
+res.json({
+  data: items,
+  pagination: { page, limit, total, totalPages }
+});
+
+// Created (201)
+res.status(201).json(newItem);
+
+// No content (204)
+res.status(204).send();
+```
+
+### Error Responses
+```typescript
+// 400 - Validation Error
+res.status(400).json({
+  success: false,
+  error: 'Validation failed',
+  errors: [{ field: 'title', message: 'Title is required' }]
+});
+
+// 404 - Not Found
+res.status(404).json({ success: false, error: 'Resource not found' });
+
+// 500 - Server Error
+res.status(500).json({ success: false, error: 'Server error' });
+```
+
+---
+
+## Best Practices
+
+### DO ✅
+- Use TypeScript interfaces for all data structures
+- Use Repository for ALL database operations
+- Keep Controllers thin - delegate to Services
+- Keep Services focused on business logic
+- Use DTOs for input/output data
+- Throw appropriate error classes
+- Export singleton instances
+- Use parameterized queries (prevent SQL injection)
+
+### DON'T ❌
+- Don't put SQL queries in Controllers
+- Don't put HTTP handling in Services
+- Don't use `any` type
+- Don't mix business logic with data access
+- Don't hardcode values - use constants/config
+- Don't skip validation
+- Don't return sensitive data (passwords, tokens)
+
+---
+
+## Migration Guide (Legacy to OOP)
+
+To migrate existing route file to OOP:
+
+1. **Extract types** → `types/entity.ts`
+2. **Extract SQL queries** → `models/EntityRepository.ts`
+3. **Extract business logic** → `services/EntityService.ts`
+4. **Keep HTTP handling** → `controllers/EntityController.ts`
+5. **Simplify routes** → `routes/v2/entity.ts`
+6. **Keep old route** for backward compatibility
+
+### Example Migration
+
+```typescript
+// OLD (in routes/entities.ts)
+router.get('/:id', auth, (req, res) => {
+  const entity = db.prepare('SELECT * FROM entities WHERE id = ?').get(req.params.id);
+  if (!entity) return res.status(404).json({ error: 'Not found' });
+  res.json(entity);
+});
+
+// NEW (split into layers)
+// Repository: findById(id) - inherited from BaseRepository
+// Service: getById(id) - inherited from BaseService
+// Controller: getById(req, res) - inherited from BaseController
+// Route: router.get('/:id', auth, controller.getById)
+```
