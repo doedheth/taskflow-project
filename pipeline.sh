@@ -94,7 +94,7 @@ V_PORT=$(grep ^VITE_PORT task-manager-client/.env | cut -d'=' -f2 | tr -dc '0-9'
 if pm2 describe "$SERVER_APP" >/dev/null 2>&1; then
   pm2 reload "$SERVER_APP" || pm2 restart "$SERVER_APP"
 else
-  pm2 start "task-manager-server/dist/index.js" --name "$SERVER_APP" --cwd "$MAIN_DIR/task-manager-server" --instances "${SERVER_INSTANCES:-2}" --exec_mode cluster
+  pm2 start "task-manager-server/dist/index.js" --name "$SERVER_APP" --cwd "$MAIN_DIR/task-manager-server" --instances "${SERVER_INSTANCES:-2}"
 fi
 
 # Client: quick restart (vite preview serves built dist)
